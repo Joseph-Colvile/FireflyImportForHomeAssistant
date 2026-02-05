@@ -1,0 +1,80 @@
+# Firefly III CSV Importer Home Assistant Add-on Configuration
+
+name: "Firefly III CSV Importer"
+description: "Import transactions into Firefly III from CSV files"
+version: "1.0.0"
+slug: "firefly-csv-importer"
+
+# Home Assistant version requirement
+homeassistant:
+  api: true
+  auth_api: true
+
+# Docker container configuration
+image: "ghcr.io/home-assistant/amd64-base:latest"
+arch:
+  - amd64
+  - arm64
+
+# Port configuration
+ports:
+  8099/tcp: 8099
+
+# Ingress configuration - allows access through HA UI
+ingress:
+  title: Firefly III CSV Importer
+  icon: mdi:import
+  port: 8099
+  protocol: http
+
+# Environment variables
+environment:
+  PORT: 8099
+  PYTHONUNBUFFERED: 1
+
+# Configuration options
+options:
+  firefly_base_url: "http://homeassistant.local:8080"
+  firefly_token: ""
+  log_level: "info"
+
+# Schema for configuration UI
+schema:
+  firefly_base_url:
+    name: "Firefly III Base URL"
+    description: "Base URL for your Firefly III instance"
+    type: "string"
+    placeholder: "http://homeassistant.local:8080"
+  firefly_token:
+    name: "Personal Access Token"
+    description: "Your Firefly III Personal Access Token"
+    type: "string"
+    private: true
+  log_level:
+    name: "Log Level"
+    description: "Log level for the add-on"
+    type: "select"
+    options:
+      - debug
+      - info
+      - warning
+      - error
+
+# Add-on health check
+healthcheck:
+  test: "curl -f http://localhost:8099/ || exit 1"
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+
+# Permissions
+privileged: []
+
+# Auto-update
+auto_update: true
+
+# Documentation
+documentation: "https://github.com/yourusername/firefly-csv-importer"
+repository: "https://github.com/yourusername/firefly-csv-importer"
+issues: "https://github.com/yourusername/firefly-csv-importer/issues"

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Firefly III CSV Importer</title>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Firefly III CSV Importer</h1>
+            <p class="subtitle">Import transactions from CSV files into Firefly III</p>
+        </header>
+
+        <main>
+            <!-- Configuration Section -->
+            <section id="config-section" class="section">
+                <h2>Configuration</h2>
+                <div class="card">
+                    <div class="form-group">
+                        <label for="firefly-url">Firefly III Base URL:</label>
+                        <input type="text" id="firefly-url" placeholder="http://homeassistant.local:8080" value="">
+                    </div>
+                    <div class="form-group">
+                        <label for="firefly-token">Personal Access Token:</label>
+                        <input type="password" id="firefly-token" placeholder="Your PAT here" value="">
+                        <small>Token will not be stored</small>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
+                    <div id="config-status" class="status"></div>
+                </div>
+            </section>
+
+            <!-- Upload Section -->
+            <section id="upload-section" class="section">
+                <h2>Upload CSV File</h2>
+                <div class="card">
+                    <div class="form-group">
+                        <label for="csv-file">Select CSV File:</label>
+                        <input type="file" id="csv-file" accept=".csv" onchange="handleFileSelect(event)">
+                        <small>Max file size: 10MB</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="csv-format">CSV Format:</label>
+                        <select id="csv-format">
+                            <option value="generic">Generic CSV</option>
+                            <option value="bank">Bank CSV</option>
+                            <option value="pocketsmith">PocketSmith CSV</option>
+                        </select>
+                        <small id="format-description" class="format-help"></small>
+                    </div>
+
+                    <button class="btn btn-primary" id="upload-btn" onclick="uploadCSV()" disabled>Upload & Validate</button>
+                    <div id="upload-status" class="status"></div>
+                </div>
+            </section>
+
+            <!-- Preview Section -->
+            <section id="preview-section" class="section" style="display: none;">
+                <h2>Preview & Validation</h2>
+                <div class="card">
+                    <div id="preview-content">
+                        <p>Validating file...</p>
+                    </div>
+                    <div id="validation-errors" class="errors"></div>
+                    <button class="btn btn-primary" id="import-btn" onclick="startImport()" disabled>Start Import</button>
+                </div>
+            </section>
+
+            <!-- Import Progress Section -->
+            <section id="progress-section" class="section" style="display: none;">
+                <h2>Import Progress</h2>
+                <div class="card">
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <p id="progress-text">Starting import...</p>
+                    <div id="import-log" class="import-log"></div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="results-section" class="section" style="display: none;">
+                <h2>Import Results</h2>
+                <div class="card">
+                    <div class="results-grid">
+                        <div class="result-item">
+                            <span class="result-label">Transactions Created:</span>
+                            <span class="result-value" id="result-transactions">0</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Accounts Created:</span>
+                            <span class="result-value" id="result-accounts">0</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Rows Skipped:</span>
+                            <span class="result-value" id="result-skipped">0</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Errors:</span>
+                            <span class="result-value" id="result-errors">0</span>
+                        </div>
+                    </div>
+
+                    <div id="accounts-created" style="margin-top: 20px; display: none;">
+                        <h3>Accounts Created:</h3>
+                        <ul id="accounts-list"></ul>
+                    </div>
+
+                    <div id="import-errors" class="errors" style="margin-top: 20px; display: none;">
+                        <h3>Errors:</h3>
+                        <ul id="errors-list"></ul>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="resetForm()">Import Another File</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Firefly III CSV Importer • Home Assistant Add-on</p>
+        </footer>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+
+        // Format descriptions
+        const formatDescriptions = {
+            generic: 'Standard format with Date, Amount, Description, Source Account, Destination Account',
+            bank: 'Bank export format with Date, Description, Amount, Balance',
+            pocketsmith: 'PocketSmith format with Date, Payee, Category, Memo, Amount, Account'
+        };
+
+        // Update format description on change
+        document.getElementById('csv-format').addEventListener('change', (e) => {
+            const desc = formatDescriptions[e.target.value];
+            document.getElementById('format-description').textContent = desc;
+        });
+
+        // Trigger initial description
+        document.getElementById('csv-format').dispatchEvent(new Event('change'));
+
+        async function saveConfig() {
+            const url = document.getElementById('firefly-url').value;
+            const token = document.getElementById('firefly-token').value;
+
+            if (!url || !token) {
+                showStatus('config-status', 'Please enter both URL and token', 'error');
+                return;
+            }
+
+            showStatus('config-status', 'Testing connection...', 'info');
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        firefly_url: url,
+                        firefly_token: token
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus('config-status', 'Configuration saved successfully!', 'success');
+                    document.getElementById('upload-btn').disabled = false;
+                } else {
+                    showStatus('config-status', `Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus('config-status', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('upload-btn').disabled = false;
+            }
+        }
+
+        async function uploadCSV() {
+            const file = document.getElementById('csv-file').files[0];
+            const format = document.getElementById('csv-format').value;
+
+            if (!file) {
+                showStatus('upload-status', 'Please select a file', 'error');
+                return;
+            }
+
+            showStatus('upload-status', 'Uploading and validating...', 'info');
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('format', format);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentSessionId = data.session_id;
+                    showPreview(data);
+                    showStatus('upload-status', `File validated! ${data.row_count} rows found.`, 'success');
+                } else {
+                    showStatus('upload-status', `Error: ${data.error}`, 'error');
+                    if (data.details) {
+                        showValidationErrors(data.details);
+                    }
+                }
+            } catch (error) {
+                showStatus('upload-status', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        function showPreview(data) {
+            const section = document.getElementById('preview-section');
+            const content = document.getElementById('preview-content');
+            const validation = document.getElementById('validation-errors');
+
+            let previewHtml = `<h3>Preview (first ${data.preview.length} rows)</h3>`;
+            previewHtml += '<table class="preview-table"><thead><tr>';
+
+            if (data.preview.length > 0) {
+                Object.keys(data.preview[0]).forEach(key => {
+                    previewHtml += `<th>${escapeHtml(key)}</th>`;
+                });
+                previewHtml += '</tr></thead><tbody>';
+
+                data.preview.forEach(row => {
+                    previewHtml += '<tr>';
+                    Object.values(row).forEach(val => {
+                        previewHtml += `<td>${escapeHtml(val)}</td>`;
+                    });
+                    previewHtml += '</tr>';
+                });
+                previewHtml += '</tbody></table>';
+            }
+
+            content.innerHTML = previewHtml;
+
+            if (data.validation.valid) {
+                validation.innerHTML = '<p class="success">✓ File is valid and ready to import</p>';
+                document.getElementById('import-btn').disabled = false;
+            } else {
+                let errorHtml = '<p class="error">✗ Validation errors found:</p><ul>';
+                data.validation.errors.forEach(err => {
+                    errorHtml += `<li>${escapeHtml(err)}</li>`;
+                });
+                errorHtml += '</ul>';
+                validation.innerHTML = errorHtml;
+            }
+
+            section.style.display = 'block';
+        }
+
+        function showValidationErrors(errors) {
+            const section = document.getElementById('preview-section');
+            const content = document.getElementById('preview-content');
+            let errorHtml = '<p class="error">Validation failed:</p><ul>';
+            errors.forEach(err => {
+                errorHtml += `<li>${escapeHtml(err)}</li>`;
+            });
+            errorHtml += '</ul>';
+            content.innerHTML = errorHtml;
+            section.style.display = 'block';
+        }
+
+        async function startImport() {
+            if (!currentSessionId) {
+                showStatus('upload-status', 'Session expired', 'error');
+                return;
+            }
+
+            document.getElementById('preview-section').style.display = 'none';
+            document.getElementById('progress-section').style.display = 'block';
+            document.getElementById('results-section').style.display = 'none';
+
+            showStatus('progress-text', 'Starting import...', 'info');
+
+            try {
+                const response = await fetch(`/api/import/${currentSessionId}`, {
+                    method: 'POST'
+                });
+
+                const results = await response.json();
+
+                if (response.ok) {
+                    showResults(results);
+                } else {
+                    showStatus('progress-text', `Error: ${results.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus('progress-text', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        function showResults(results) {
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('results-section').style.display = 'block';
+
+            document.getElementById('result-transactions').textContent = results.transactions_created || 0;
+            document.getElementById('result-accounts').textContent = results.accounts_created || 0;
+            document.getElementById('result-skipped').textContent = results.rows_skipped || 0;
+            document.getElementById('result-errors').textContent = results.errors.length || 0;
+
+            if (results.accounts && results.accounts.length > 0) {
+                const list = document.getElementById('accounts-list');
+                list.innerHTML = '';
+                results.accounts.forEach(account => {
+                    const li = document.createElement('li');
+                    li.textContent = account;
+                    list.appendChild(li);
+                });
+                document.getElementById('accounts-created').style.display = 'block';
+            }
+
+            if (results.errors && results.errors.length > 0) {
+                const list = document.getElementById('errors-list');
+                list.innerHTML = '';
+                results.errors.forEach(err => {
+                    const li = document.createElement('li');
+                    li.textContent = `Row ${err.row}: ${err.message}`;
+                    list.appendChild(li);
+                });
+                document.getElementById('import-errors').style.display = 'block';
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('csv-file').value = '';
+            document.getElementById('preview-section').style.display = 'none';
+            document.getElementById('results-section').style.display = 'none';
+            document.getElementById('upload-btn').disabled = false;
+            currentSessionId = null;
+        }
+
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+    </script>
+</body>
+</html>

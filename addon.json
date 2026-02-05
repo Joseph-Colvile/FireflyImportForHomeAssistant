@@ -1,0 +1,48 @@
+{
+  "name": "Firefly III CSV Importer",
+  "description": "Import transactions from CSV files into Firefly III",
+  "version": "1.0.0",
+  "slug": "firefly-csv-importer",
+  "maintainers": ["Your Name <you@example.com>"],
+  "codeowners": ["@yourusername"],
+  "category": "productivity",
+  "documentation": "https://github.com/yourusername/firefly-csv-importer",
+  "repository": "https://github.com/yourusername/firefly-csv-importer",
+  "issues": "https://github.com/yourusername/firefly-csv-importer/issues",
+  "homeassistant": "2023.11.0",
+  "image": "ghcr.io/yourusername/addon-firefly-csv-importer-{arch}",
+  "arch": ["amd64", "armhf", "armv7", "arm64"],
+  "ingress": true,
+  "ingress_port": 8099,
+  "ingress_entry": "/",
+  "ports": {
+    "8099/tcp": 8099
+  },
+  "host_network": false,
+  "options": {
+    "firefly_base_url": "http://homeassistant.local:8080",
+    "firefly_token": "",
+    "log_level": "info"
+  },
+  "schema": {
+    "firefly_base_url": "str",
+    "firefly_token": "password",
+    "log_level": "list(debug|info|warning|error)"
+  },
+  "environment": {
+    "PYTHONUNBUFFERED": 1,
+    "PORT": 8099
+  },
+  "healthcheck": {
+    "test": ["CMD", "curl", "-f", "http://localhost:8099/"],
+    "interval": 30,
+    "timeout": 10,
+    "retries": 3,
+    "start_period": 30
+  },
+  "startup": "services",
+  "auth": false,
+  "privileged": [],
+  "auto_update": true,
+  "advanced": false
+}

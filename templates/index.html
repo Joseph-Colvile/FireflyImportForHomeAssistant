@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firefly III CSV Importer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <span class="icon">📊</span>
+                    Firefly III CSV Importer
+                </h1>
+                <p class="subtitle">Import transactions from CSV files into Firefly III</p>
+            </div>
+            <div class="connection-status">
+                <span id="connection-indicator" class="status-indicator"></span>
+                <span id="connection-text" class="status-text">Checking...</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Step 1: Upload CSV -->
+            <section id="step-1" class="step active">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <h2>Upload CSV File</h2>
+                </div>
+                
+                <div class="step-content">
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-icon">📁</div>
+                        <p class="upload-text">Drop your CSV file here or click to select</p>
+                        <input type="file" id="csv-file" accept=".csv" hidden>
+                        <small class="upload-help">Maximum file size: <span id="max-size">10</span>MB</small>
+                    </div>
+
+                    <div id="file-info" class="file-info hidden">
+                        <div class="file-details">
+                            <span class="file-name" id="file-name"></span>
+                            <button type="button" class="btn-icon" id="clear-file" title="Clear file">✕</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="csv-format">CSV Format Type:</label>
+                        <select id="csv-format">
+                            <option value="auto">Auto-detect</option>
+                            <option value="bank">Bank CSV</option>
+                            <option value="pocketsmith">PocketSmith CSV</option>
+                            <option value="generic">Generic CSV</option>
+                        </select>
+                        <small>Select the format to help with column mapping</small>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" id="parse-btn" disabled>
+                        <span>Parse CSV File</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 2: Map Columns -->
+            <section id="step-2" class="step hidden">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <h2>Map CSV Columns</h2>
+                </div>
+                
+                <div class="step-content">
+                    <p class="step-description">Map your CSV columns to the required fields for import.</p>
+                    
+                    <div class="mapping-container">
+                        <!-- Required fields -->
+                        <div class="mapping-section">
+                            <h3>Required Fields</h3>
+                            
+                            <div class="mapping-item">
+                                <label>Date Column: <span class="required">*</span></label>
+                                <select id="map-date" class="mapping-select">
+                                    <option value="">-- Select Column --</option>
+                                </select>
+                            </div>
+
+                            <div class="mapping-item">
+                                <label>Amount Column: <span class="required">*</span></label>
+                                <select id="map-amount" class="mapping-select">
+                                    <option value="">-- Select Column --</option>
+                                </select>
+                            </div>
+
+                            <div class="mapping-item">
+                                <label>Description Column: <span class="required">*</span></label>
+                                <select id="map-description" class="mapping-select">
+                                    <option value="">-- Select Column --</option>
+                                </select>
+                            </div>
+
+                            <div class="mapping-item">
+                                <label>Source Account Column: <span class="required">*</span></label>
+                                <select id="map-source-account" class="mapping-select">
+                                    <option value="">-- Select Column --</option>
+                                </select>
+                            </div>
+
+                            <div class="mapping-item">
+                                <label>Destination Account Column: <span class="required">*</span></label>
+                                <select id="map-destination-account" class="mapping-select">
+                                    <option value="">-- Select Column --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Optional fields -->
+                        <div class="mapping-section">
+                            <h3>Optional Fields</h3>
+                            
+                            <div class="mapping-item">
+                                <label>Transaction Type: <span class="optional">(optional)</span></label>
+                                <select id="map-type" class="mapping-select">
+                                    <option value="">-- Select Column (or leave empty) --</option>
+                                </select>
+                                <small>Values: withdrawal, deposit, transfer</small>
+                            </div>
+
+                            <div class="mapping-item">
+                                <label>Category: <span class="optional">(optional)</span></label>
+                                <select id="map-category" class="mapping-select">
+                                    <option value="">-- Select Column (or leave empty) --</option>
+                                </select>
+                            </div>
+
+                            <div class="mapping-item">
+                                <label>Tags: <span class="optional">(optional)</span></label>
+                                <select id="map-tags" class="mapping-select">
+                                    <option value="">-- Select Column (or leave empty) --</option>
+                                </select>
+                                <small>Comma-separated values</small>
+                            </div>
+
+                            <div class="mapping-item">
+                                <label>Notes: <span class="optional">(optional)</span></label>
+                                <select id="map-notes" class="mapping-select">
+                                    <option value="">-- Select Column (or leave empty) --</option>
+                                </select>
+                            </div>
+
+                            <div class="mapping-item">
+                                <label>External ID: <span class="optional">(optional)</span></label>
+                                <select id="map-external-id" class="mapping-select">
+                                    <option value="">-- Select Column (or leave empty) --</option>
+                                </select>
+                                <small>For deduplication</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview -->
+                    <div class="preview-section">
+                        <h3>Preview (First 5 Rows)</h3>
+                        <div id="preview-container" class="table-responsive">
+                            <table class="preview-table">
+                                <thead id="preview-head"></thead>
+                                <tbody id="preview-body"></tbody>
+                            </table>
+                        </div>
+                        <small id="row-count" class="row-count"></small>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="step-actions">
+                        <button type="button" class="btn btn-secondary" id="back-step2">Back</button>
+                        <button type="button" class="btn btn-primary" id="import-btn">
+                            <span>Start Import</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 3: Import Results -->
+            <section id="step-3" class="step hidden">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <h2>Import Results</h2>
+                </div>
+                
+                <div class="step-content">
+                    <!-- Summary -->
+                    <div id="import-summary" class="summary-cards">
+                        <div class="summary-card">
+                            <div class="summary-number" id="summary-imported">0</div>
+                            <div class="summary-label">Imported</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-number" id="summary-skipped">0</div>
+                            <div class="summary-label">Skipped</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-number" id="summary-created">0</div>
+                            <div class="summary-label">Accounts Created</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-number" id="summary-rate">0%</div>
+                            <div class="summary-label">Success Rate</div>
+                        </div>
+                    </div>
+
+                    <!-- Imported Transactions -->
+                    <div id="imported-section" class="result-section hidden">
+                        <h3>✓ Successfully Imported</h3>
+                        <div id="imported-list" class="result-list"></div>
+                    </div>
+
+                    <!-- Errors -->
+                    <div id="errors-section" class="result-section hidden">
+                        <h3>✗ Errors</h3>
+                        <div id="errors-list" class="result-list"></div>
+                    </div>
+
+                    <!-- Accounts Created -->
+                    <div id="accounts-section" class="result-section hidden">
+                        <h3>📋 Accounts Created</h3>
+                        <div id="accounts-list" class="result-list"></div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="step-actions">
+                        <button type="button" class="btn btn-secondary" id="import-again-btn">Import Another File</button>
+                        <a href="#" class="btn btn-primary" id="firefly-link" target="_blank">
+                            Open Firefly III →
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Loading Indicator -->
+            <div id="loading-overlay" class="loading-overlay hidden">
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <p id="loading-text">Processing...</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Alert Messages -->
+        <div id="alerts-container" class="alerts-container"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

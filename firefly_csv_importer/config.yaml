@@ -2,22 +2,21 @@ name: Firefly III CSV Importer
 description: Import transactions into Firefly III from CSV files
 version: 1.0.0
 slug: firefly_csv_importer
-build:
-  dockerfile: Dockerfile
 init: false
+startup: application
 arch:
   - amd64
   - armv7
   - aarch64
-ports:
-  8099/tcp: 8099
-ports_description:
-  8099/tcp: Firefly III CSV Importer Web UI
 ingress: true
 ingress_port: 8099
 ingress_entry: /
 panel_icon: mdi:import
 panel_title: Firefly CSV Importer
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: Firefly III CSV Importer Web UI
 options:
   firefly_url: http://localhost:8080
   firefly_token: ""
@@ -28,10 +27,5 @@ schema:
   firefly_token: password
   csv_max_size_mb: int?
   default_currency: str?
-startup: services
-services:
-  http:
-    main: true
-homeassistant_api: true
-host_dbus: false
-auth_api: true
+build:
+  dockerfile: Dockerfile

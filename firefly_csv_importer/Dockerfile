@@ -30,12 +30,7 @@ COPY run.sh /run.sh
 
 RUN chmod a+x /run.sh
 
-# Create non-root user for security
-RUN addgroup -g 1000 appuser && \
-    adduser -u 1000 -G appuser -s /sbin/nologin -D appuser && \
-    chown -R appuser:appuser /app
-
-USER appuser
+# Home Assistant add-ons run as root by default to access /data/options.json
 
 # Expose port
 EXPOSE 8099

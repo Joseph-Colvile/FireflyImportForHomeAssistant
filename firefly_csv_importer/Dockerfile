@@ -3,6 +3,8 @@ FROM ${BUILD_FROM}
 
 # Install system dependencies
 RUN apk add --no-cache \
+    python3 \
+    py3-pip \
     gcc \
     musl-dev \
     linux-headers \
@@ -15,7 +17,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY app.py .

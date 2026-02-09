@@ -24,6 +24,25 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 
+
+class IngressPathMiddleware:
+    """Support Home Assistant Ingress by honoring X-Ingress-Path."""
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        ingress_path = environ.get('HTTP_X_INGRESS_PATH', '')
+        if ingress_path:
+            environ['SCRIPT_NAME'] = ingress_path
+            path_info = environ.get('PATH_INFO', '')
+            if path_info.startswith(ingress_path):
+                environ['PATH_INFO'] = path_info[len(ingress_path):] or '/'
+        return self.wsgi_app(environ, start_response)
+
+
+app.wsgi_app = IngressPathMiddleware(app.wsgi_app)
+
 # Configuration
 FIREFLY_URL = os.environ.get('FIREFLY_URL', '').rstrip('/')
 FIREFLY_TOKEN = os.environ.get('FIREFLY_TOKEN', '')

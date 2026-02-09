@@ -3,8 +3,6 @@ FROM ${BUILD_FROM}
 
 # Install system dependencies
 RUN apk add --no-cache \
-    python3 \
-    py3-pip \
     gcc \
     musl-dev \
     linux-headers \
@@ -16,8 +14,11 @@ WORKDIR /app
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN python3 -m pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies in a venv to avoid PEP 668 restrictions
+RUN python3 -m venv /opt/venv && \
+    /opt/venv/bin/python -m pip install --no-cache-dir -r requirements.txt
+
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy application files
 COPY app.py .

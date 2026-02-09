@@ -96,7 +96,7 @@ function updateConnection(status, text) {
 
 async function loadConfig() {
   try {
-    const response = await fetch("/api/config");
+    const response = await fetch("api/config");
     const data = await response.json();
     state.config = data;
     elements.maxSize.textContent = data.max_upload_size_mb || 10;
@@ -117,7 +117,7 @@ async function loadConfig() {
 async function testConnection() {
   updateConnection(null, "Checking...");
   try {
-    const response = await fetch("/api/test-connection", { method: "POST" });
+    const response = await fetch("api/test-connection", { method: "POST" });
     const data = await response.json();
     if (response.ok && data.success) {
       updateConnection(true, `Connected as ${data.user}`);
@@ -282,7 +282,7 @@ async function parseCsv() {
   const formData = new FormData();
   formData.append("file", state.file);
   try {
-    const response = await fetch("/api/parse-csv", {
+    const response = await fetch("api/parse-csv", {
       method: "POST",
       body: formData
     });
@@ -355,7 +355,7 @@ async function importTransactions() {
   }
   setLoading(true, "Importing transactions...");
   try {
-    const response = await fetch("/api/import-transactions", {
+    const response = await fetch("api/import-transactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
